@@ -1,3 +1,4 @@
+# Rebuild after enabling both C and CXX in the top-level JUCE project.
 name: Build Bambuza Motion VST3 (macOS Intel)
 
 on:
@@ -16,7 +17,6 @@ permissions:
 jobs:
   build-vst3:
     name: Build x86_64 VST3
-    # Intel macOS runner. If GitHub changes runner availability, use macos-14 or macos-15 and verify uname.
     runs-on: macos-15-intel
     timeout-minutes: 60
     steps:
