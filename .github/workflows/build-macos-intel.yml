@@ -1,0 +1,60 @@
+name: Build Bambuza Motion VST3 (macOS Intel)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'CMakeLists.txt'
+      - 'Source/**'
+      - 'Tests/**'
+      - '.github/workflows/build-macos-intel.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-vst3:
+    name: Build x86_64 VST3
+    # Intel macOS runner. If GitHub changes runner availability, use macos-14 or macos-15 and verify uname.
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Show toolchain
+        run: |
+          sw_vers
+          uname -m
+          cmake --version
+          clang++ --version
+      - name: Run DSP tests
+        run: |
+          cmake -S . -B build-dsp -DBAMBUZA_DSP_ONLY=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dsp --parallel 2
+          ctest --test-dir build-dsp --output-on-failure
+      - name: Configure JUCE VST3
+        run: |
+          cmake -S . -B build-vst3 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 \
+            -DBAMBUZA_FETCH_JUCE=ON \
+            -DBAMBUZA_DSP_ONLY=OFF
+      - name: Compile VST3
+        run: cmake --build build-vst3 --config Release --target BambuzaMotion_VST3 --parallel 3
+      - name: Verify Intel binary
+        run: |
+          PLUGIN='build-vst3/BambuzaMotion_artefacts/Release/VST3/Bambuza Motion.vst3'
+          test -d "$PLUGIN"
+          BIN="$PLUGIN/Contents/MacOS/Bambuza Motion"
+          test -f "$BIN"
+          file "$BIN"
+          lipo -archs "$BIN" | grep -q 'x86_64'
+      - name: Upload VST3 bundle as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bambuza-Motion-macOS-Intel-VST3
+          path: build-vst3/BambuzaMotion_artefacts/Release/VST3/Bambuza Motion.vst3
+          if-no-files-found: error
+          retention-days: 30
